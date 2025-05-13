@@ -1,27 +1,75 @@
-# NgDoCheckTest
+# Angular 变更检测演示项目
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.2.19.
+这个项目旨在演示 Angular 中不同变更检测策略（OnPush 和 Default）在各种组件组合下的行为差异，特别是 `ngDoCheck` 生命周期钩子的触发情况。
 
-## Development server
+## 主要功能
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+- 展示四种组件组合的变更检测行为：
+  - 默认变更检测父组件 + 默认变更检测子组件
+  - 默认变更检测父组件 + OnPush变更检测子组件
+  - OnPush变更检测父组件 + 默认变更检测子组件
+  - OnPush变更检测父组件 + OnPush变更检测子组件
+- 通过计时器和鼠标移动事件触发变更检测
+- 使用 console.count() 统计各个组件的生命周期钩子和昂贵计算属性的调用次数
 
-## Code scaffolding
+## 安装和运行
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+```bash
+# 安装依赖
+npm install
 
-## Build
+# 启动开发服务器
+ng serve
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+# 浏览器访问
+http://localhost:4200/
+```
 
-## Running unit tests
+## 项目结构
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+```
+src/
+├── app/
+│   ├── components/
+│   │   ├── default-parent/       # 默认变更检测父组件
+│   │   ├── on-push-parent/       # OnPush变更检测父组件
+│   │   ├── default-child/        # 默认变更检测子组件
+│   │   └── on-push-child/        # OnPush变更检测子组件
+│   ├── shared/
+│   │   └── state.service.ts      # 共享状态服务
+│   ├── app.component.ts          # 应用主组件
+│   └── ...
+└── ...
+```
 
-## Running end-to-end tests
+## 如何观察和理解结果
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+1. 打开浏览器的控制台（F12 或 右键 -> 检查 -> Console）
+2. 点击应用中的"启动计时器"按钮或"启动鼠标移动监听"按钮
+3. 观察控制台输出的各个组件中 `ngDoCheck` 和计算属性的调用计数
+4. 尝试更新父组件中的状态（计数器、文本、项目）并观察不同子组件的反应
 
-## Further help
+## 理解变更检测机制
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+### 关键发现
+
+1. **当父组件使用 Default 变更检测策略时**：
+   - 所有异步事件（计时器、鼠标移动等）都会触发父组件和所有子组件（无论子组件使用什么策略）的变更检测
+   - 子组件的 `ngDoCheck` 会被调用，无论子组件是否使用 OnPush 策略
+
+2. **当父组件使用 OnPush 变更检测策略时**：
+   - 仅当父组件的输入属性发生变化、事件触发或使用 AsyncPipe 时才会触发变更检测
+   - 如果父组件没有被检测，其所有子组件都不会被检测，无论子组件使用什么策略
+   - 子组件的 `ngDoCheck` 不会被调用，因为变更检测在父组件处就被"剪枝"了
+
+3. **昂贵计算属性**：
+   - 在默认变更检测策略下，每次检测周期都会调用所有 getter
+   - 在 OnPush 变更检测策略下，只有在组件被检测时才会调用 getter
+
+### 为什么会这样?
+
+Angular 的变更检测是单向的、自上而下的过程。当使用 OnPush 策略时，父组件会在特定条件下被跳过检测，它的整个子树也会被跳过。这是 Angular 变更检测性能优化的核心机制。
+
+## 注意事项
+
+为清晰展示变更检测行为，项目中模拟了昂贵计算属性（使用循环和数学运算）。在实际应用中，应尽量避免在模板绑定的计算属性中执行复杂计算，或使用适当的缓存策略。
